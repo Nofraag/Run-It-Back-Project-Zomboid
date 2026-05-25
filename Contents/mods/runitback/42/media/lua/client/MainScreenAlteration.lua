@@ -1,35 +1,41 @@
+local runtimeVar = require("RIBruntime")
+
+
 local MainScreen_instantiate = MainScreen.instantiate
+
 function MainScreen:instantiate()
 	-- call the original first so vanilla behaviour exist
 	MainScreen_instantiate(self)
-	local data = ModData.getOrCreate("RetakeMod")
-	if not data.RetryPending or self.inGame then
+	if not runtimeVar.RetryPending or self.inGame or not MainScreen.instance then
 		return
 	end
 
-	if data.customization then
-		createWorldAndSetData(self, data)
+	MainScreen.instance.bottomPanel:setVisible(false);
+
+	
+	if runtimeVar.currentAction == "customization" then
+		createWorldAndSetData(self)
         applyTraitsAndProfessionFromData(self.charCreationProfession)
 		self.charCreationMain:setVisible(true, JoypadData)
 				
-		ModData.getOrCreate("RetakeMod").customization = false
-	elseif data.fresh then
+		runtimeVar.currentAction = ""
+	elseif runtimeVar.currentAction == "fresh" then
+		runtimeVar.RetryPending = nil
+
         ActiveMods.getById("currentGame"):copyFrom(ActiveMods.getById("default"))
         self.soloScreen:setVisible(true, JoypadData);
         self.soloScreen:onItemClick(self.soloScreen.panels[1], 0, 0);
 		
-		ModData.getOrCreate("RetakeMod").fresh = false
-    elseif data.trait then
-		createWorldAndSetData(self, data)
+		runtimeVar.currentAction = ""
+    elseif runtimeVar.currentAction == "trait" then
+		createWorldAndSetData(self)
         applyTraitsAndProfessionFromData(self.charCreationProfession)
-				
-		ModData.getOrCreate("RetakeMod").trait = false
-	elseif data.remake then
-        createWorldAndSetData(self, data)
+		self.charCreationProfession:setVisible(true, JoypadData)
+
+		runtimeVar.currentAction = ""
+	elseif runtimeVar.currentAction == "remake" then
+        createWorldAndSetData(self)
         applyTraitsAndProfessionFromData(self.charCreationProfession)
 		self.charCreationMain:setVisible(true, JoypadData)
-
 	end
-
-    ModData.getOrCreate("RetakeMod").RetryPending = nil
 end

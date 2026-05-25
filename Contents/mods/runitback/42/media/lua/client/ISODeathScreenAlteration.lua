@@ -1,9 +1,19 @@
 -- in your mod's client lua file
 local UI_BORDER_SPACING = 10
 
+local RIBTrait
+local RIBCustomization
+local RIBFreshStart
+local RIBWorldDirect
+
+local runtimeVar = require("RIBruntime")
+
 local ISPostDeathUI_createChildren = ISPostDeathUI.createChildren
 function ISPostDeathUI:createChildren()
 	ISPostDeathUI_createChildren(self)
+
+	if isMultiplayer() then
+		return end
 
 	local buttonWid = self.buttonExit:getWidth()
     local buttonHgt = toInt(self.buttonExit:getHeight())  
@@ -18,10 +28,12 @@ function ISPostDeathUI:createChildren()
 	-- add from vanilla last button
 	buttonY = buttonY + buttonHgt + buttonGapY
 
+
 	-- modded buttons	
 	local moddedButton = ISButton:new(
-		buttonX, buttonY, buttonWid, buttonHgt, getText("Remake_RemakeTrait"), self, self.traitRetake
+		buttonX, buttonY, buttonWid, buttonHgt, getText("Restart this world on the traits screen"), self, self.traitRetake
 	)
+	RIBTrait = moddedButton
 	self:configButton(moddedButton)
 	moddedButton:initialise()
 	moddedButton:instantiate()
@@ -29,8 +41,9 @@ function ISPostDeathUI:createChildren()
 	buttonY = buttonY + buttonHgt + buttonGapY
 	
 	moddedButton = ISButton:new(
-		buttonX, buttonY, buttonWid, buttonHgt, getText("Remake_RemakeCustomization"), self, self.customizationRetake
+		buttonX, buttonY, buttonWid, buttonHgt, getText("Restart this world on the customization screen"), self, self.customizationRetake
 	)
+	RIBCustomization = moddedButton
 	self:configButton(moddedButton)
 	moddedButton:initialise()
 	moddedButton:instantiate()
@@ -38,8 +51,9 @@ function ISPostDeathUI:createChildren()
 	buttonY = buttonY + buttonHgt + buttonGapY
 	
 	moddedButton = ISButton:new(
-		buttonX, buttonY, buttonWid, buttonHgt, getText("Remake_RemakeFreshStart"), self, self.freshRetake
+		buttonX, buttonY, buttonWid, buttonHgt, getText("Make a new world"), self, self.freshRetake
 	)
+	RIBFreshStart = moddedButton
 	self:configButton(moddedButton)
 	moddedButton:initialise()
 	moddedButton:instantiate()
@@ -47,32 +61,41 @@ function ISPostDeathUI:createChildren()
 	buttonY = buttonY + buttonHgt + buttonGapY
 	
 	moddedButton = ISButton:new(
-		buttonX, buttonY, buttonWid, buttonHgt, getText("Remake_WorldDirect"), self, self.remakeRetake
+		buttonX, buttonY, buttonWid, buttonHgt, getText("Restart this world"), self, self.remakeRetake
 	)
+	RIBWorldDirect = moddedButton
 	self:configButton(moddedButton)
 	moddedButton:initialise()
 	moddedButton:instantiate()
 	self:addChild(moddedButton)
+end
 
+local ISPostDeathUI_prerender = ISPostDeathUI.prerender
+function ISPostDeathUI:prerender()
+    ISPostDeathUI_prerender(self)
+	local allPlayersDead = IsoPlayer.allPlayersDead()
+
+	if not (RIBWorldDirect or RIBFreshStart or RIBCustomization or RIBTrait) then return end
+
+	RIBWorldDirect:setVisible(self.waitOver and allPlayersDead)
+	RIBFreshStart:setVisible(self.waitOver and allPlayersDead)
+	RIBCustomization:setVisible(self.waitOver and allPlayersDead)
+	RIBTrait:setVisible(self.waitOver and allPlayersDead)
 end
 function ISPostDeathUI:remakeRetake()
-	ModData.getOrCreate("RetakeMod").remake = true
-	
+	runtimeVar.setData("remake")
 	redirectToMenu(self)
 end
 function ISPostDeathUI:traitRetake()
-	ModData.getOrCreate("RetakeMod").trait = true
-	
+	runtimeVar.setData("trait")
 	redirectToMenu(self)
 end
 function ISPostDeathUI:customizationRetake()
-	ModData.getOrCreate("RetakeMod").customization = true
-	
+	runtimeVar.setData("customization")
 	redirectToMenu(self)
 end
 
 function ISPostDeathUI:freshRetake()
-	ModData.getOrCreate("RetakeMod").fresh = true
-	
+	runtimeVar.setData("fresh")
 	redirectToMenu(self)
 end
