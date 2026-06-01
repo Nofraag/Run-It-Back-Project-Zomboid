@@ -1,4 +1,5 @@
-local runtimeVar = require("RIBruntime")
+---@diagnostic disable: need-check-nil, undefined-field, param-type-mismatch
+local RIBruntime = require("RIBruntime")
 
 function redirectToMenu(ISPostDeathUI)
     if MainScreen.instance and MainScreen.instance:isReallyVisible() then
@@ -28,6 +29,8 @@ function savePersistentData(CharacterCreation, CharacterProfessionTab)
 
     data.chestHair = selectedchesthair
 
+    data.spawnPoint = world:getMap()
+
     local traits = {}
     local items = CharacterProfessionTab.listboxTraitSelected.items
     for i = 1, #items do
@@ -40,36 +43,52 @@ function savePersistentData(CharacterCreation, CharacterProfessionTab)
 end
 
 function createWorldAndSetData(MainScreen)
-    if not runtimeVar.RetryPending or isMultiplayer() then return end
+    local data = RIBruntime.getData()
+
+    if not data.RIBpending or isMultiplayer() then return end
 
     local sdf = SimpleDateFormat.new("yyyy-MM-dd_HH-mm-ss", Locale.ENGLISH)
+
+    ---@diagnostic disable-next-line: missing-parameter
     local worldName = tostring(sdf:format(Calendar.getInstance():getTime())) -- ignore warning probably from other's api
 
-    local worldD = runtimeVar.RetryPending.world
+    local worldD = data.RIBpending.world
 
     MainScreen.createWorld = true
     ActiveMods.getById("currentGame"):copyFrom(ActiveMods.getById("default"))
 
     getWorld():setWorld(worldName)
     getWorld():setPreset(worldD.preset)
+
+    if worldD.sandboxSetting then
+        worldD.sandboxSetting:applySettings()
+        worldD.sandboxSetting:toLua()
+    end
+
     getWorld():setMap(worldD.map)
 end
 function applyTraitsAndProfessionFromData(CharacterProfessionScreen)
-    if not runtimeVar.RetryPending then return end
-    
-    local prof = runtimeVar.RetryPending.characterProfession
+    local data = RIBruntime.getData()
+
+    if not data.RIBpending then return end
+
+    local prof = data.RIBpending.characterProfession
     if not prof or not prof.traits then return end
 
-    local prof = runtimeVar.RetryPending.characterProfession
-
-    local professionDefinition = CharacterProfessionDefinition.getCharacterProfessionDefinition(prof.profession)
+    local professionDefinition = CharacterProfessionDefinition.getCharacterProfessionDefinition(
+        CharacterProfession.get(ResourceLocation.of(prof.profession))
+    )
     if professionDefinition then
         CharacterProfessionScreen:onSelectProf(professionDefinition)
     end
 
     local charTraits = prof.traits
+
+    ---@diagnostic disable-next-line: param-type-mismatch
     for _, traitId in pairs(charTraits) do
-        local traitDef = CharacterTraitDefinition.getCharacterTraitDefinition(CharacterTrait.get(ResourceLocation.of(traitId)))
+        local traitDef = CharacterTraitDefinition.getCharacterTraitDefinition(
+            CharacterTrait.get(ResourceLocation.of(traitId))
+        )
         if traitDef then
             CharacterProfessionScreen:addTrait(traitDef)
         end
@@ -77,9 +96,11 @@ function applyTraitsAndProfessionFromData(CharacterProfessionScreen)
 end
 
 function applyOldCharacterVisual(CharacterMainScreen)
-    if not MainScreen.instance or not runtimeVar.RetryPending then return end
+    local data = RIBruntime.getData()
 
-    local char = runtimeVar.RetryPending.mainCharacter
+    if not MainScreen.instance or not data.RIBpending then return end
+
+    local char = data.RIBpending.mainCharacter
     local desc = MainScreen.instance.desc
 
     -- Gender
@@ -105,11 +126,7 @@ function applyOldCharacterVisual(CharacterMainScreen)
     CharacterMainScreen:onSkinColorPicked(CharacterMainScreen.skinColors[char.skinIndex + 1], true)
 
     -- Hair
-    local colorRGB = {}
-    colorRGB.r = char.hairColor:getRedFloat()
-    colorRGB.g = char.hairColor:getGreenFloat()
-    colorRGB.b = char.hairColor:getBlueFloat()
-    CharacterMainScreen:onHairColorPicked(colorRGB, true)
+    CharacterMainScreen:onHairColorPicked(char.hairColor, true)
     CharacterMainScreen.hairTypeCombo.selected = 1
     CharacterMainScreen.hairTypeCombo:selectData(char.hair)
     CharacterMainScreen:onHairTypeSelected(CharacterMainScreen.hairTypeCombo)
@@ -144,14 +161,12 @@ function applyOldCharacterVisual(CharacterMainScreen)
     CharacterMainScreen.voicePitchSlider:setCurrentValue(char.voicePitch, true)
     CharacterMainScreen:onVoiceTypeSelected()
 
-    CharacterMainScreen:randomGenericOutfit() -- fix player being nude
+    CharacterMainScreen:randomGenericOutfit()
 end
 
-Events.OnCreatePlayer.Add(function(playerIndex, player)
+Events.OnCreatePlayer.Add(function (playerIndex, player)
     if MainScreen.instance and MainScreen.instance.charCreationProfession then
-        savePersistentData(
-            MainScreen.instance.charCreationMain,
-            MainScreen.instance.charCreationProfession
-        )
+        RIBruntime.clearData()
+        savePersistentData(MainScreen.instance.charCreationMain, MainScreen.instance.charCreationProfession)
     end
 end)

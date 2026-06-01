@@ -1,101 +1,70 @@
+---@diagnostic disable: call-non-callable, need-check-nil
 -- in your mod's client lua file
 local UI_BORDER_SPACING = 10
 
-local RIBTrait
-local RIBCustomization
-local RIBFreshStart
-local RIBWorldDirect
-
-local runtimeVar = require("RIBruntime")
+local restartLabel
+local restartCombo
+local RIBruntime = require("RIBruntime")
 
 local ISPostDeathUI_createChildren = ISPostDeathUI.createChildren
 function ISPostDeathUI:createChildren()
 	ISPostDeathUI_createChildren(self)
-
+	
 	if isMultiplayer() then
-		return end
-
+		return
+	end
+	
 	local buttonWid = self.buttonExit:getWidth()
-    local buttonHgt = toInt(self.buttonExit:getHeight())  
-    local buttonX = self.buttonExit:getX()
-    local buttonY = self.buttonQuit:getY() -- quit because it's the last button added in vanilla
+	local buttonHgt = toInt(self.buttonExit:getHeight())
+	local buttonX = self.buttonExit:getX()
+	local buttonY = self.buttonQuit:getY() -- quit because it's the last button added in vanilla
 	local buttonGapY = UI_BORDER_SPACING
 	local newTotalHgt = (buttonHgt * 7) + (buttonGapY * 6)
-
+	
 	self:setHeight(newTotalHgt)
 	self:setY(self.screenY + (self.screenHeight - 40 - newTotalHgt))
-
+	
 	-- add from vanilla last button
 	buttonY = buttonY + buttonHgt + buttonGapY
-
-
-	-- modded buttons	
-	local moddedButton = ISButton:new(
-		buttonX, buttonY, buttonWid, buttonHgt, getText("Restart this world on the traits screen"), self, self.traitRetake
-	)
-	RIBTrait = moddedButton
-	self:configButton(moddedButton)
-	moddedButton:initialise()
-	moddedButton:instantiate()
-	self:addChild(moddedButton)
-	buttonY = buttonY + buttonHgt + buttonGapY
 	
-	moddedButton = ISButton:new(
-		buttonX, buttonY, buttonWid, buttonHgt, getText("Restart this world on the customization screen"), self, self.customizationRetake
-	)
-	RIBCustomization = moddedButton
-	self:configButton(moddedButton)
-	moddedButton:initialise()
-	moddedButton:instantiate()
-	self:addChild(moddedButton)
-	buttonY = buttonY + buttonHgt + buttonGapY
-	
-	moddedButton = ISButton:new(
-		buttonX, buttonY, buttonWid, buttonHgt, getText("Make a new world"), self, self.freshRetake
-	)
-	RIBFreshStart = moddedButton
-	self:configButton(moddedButton)
-	moddedButton:initialise()
-	moddedButton:instantiate()
-	self:addChild(moddedButton)
-	buttonY = buttonY + buttonHgt + buttonGapY
-	
-	moddedButton = ISButton:new(
-		buttonX, buttonY, buttonWid, buttonHgt, getText("Restart this world"), self, self.remakeRetake
-	)
-	RIBWorldDirect = moddedButton
-	self:configButton(moddedButton)
-	moddedButton:initialise()
-	moddedButton:instantiate()
-	self:addChild(moddedButton)
+	-- modded buttons
+	restartCombo = ISComboBox:new(buttonX, buttonY, buttonWid, buttonHgt, self, self.RIBComboMenu)
+	restartCombo:initialise()
+	restartCombo:addOption(getText("Restart this world"))
+	restartCombo:addOption(getText("Restart this world: Traits"))
+	restartCombo:addOption(getText("Restart this world: Customization"))
+	restartCombo:addOption(getText("Make a new world"))
+	self:addChild(restartCombo)
 end
 
 local ISPostDeathUI_prerender = ISPostDeathUI.prerender
 function ISPostDeathUI:prerender()
-    ISPostDeathUI_prerender(self)
+	ISPostDeathUI_prerender(self)
 	local allPlayersDead = IsoPlayer.allPlayersDead()
-
-	if not (RIBWorldDirect or RIBFreshStart or RIBCustomization or RIBTrait) then return end
-
-	RIBWorldDirect:setVisible(self.waitOver and allPlayersDead)
-	RIBFreshStart:setVisible(self.waitOver and allPlayersDead)
-	RIBCustomization:setVisible(self.waitOver and allPlayersDead)
-	RIBTrait:setVisible(self.waitOver and allPlayersDead)
+	
+	if not restartCombo or not restartLabel then return end
+	
+	restartLabel:setVisible(self.waitOver and allPlayersDead)
+	restartCombo:setVisible(self.waitOver and allPlayersDead)
 end
-function ISPostDeathUI:remakeRetake()
-	runtimeVar.setData("remake")
-	redirectToMenu(self)
-end
-function ISPostDeathUI:traitRetake()
-	runtimeVar.setData("trait")
-	redirectToMenu(self)
-end
-function ISPostDeathUI:customizationRetake()
-	runtimeVar.setData("customization")
-	redirectToMenu(self)
-end
-
-function ISPostDeathUI:freshRetake()
-	runtimeVar.setData("fresh")
+function ISPostDeathUI:RIBComboMenu(combo)
+	local actions = {
+		[1] = function ()
+			RIBruntime.saveData("remake")
+		end,
+		[2] = function ()
+			RIBruntime.saveData("trait")
+		end,
+		[3] = function ()
+			RIBruntime.saveData("customization")
+		end,
+		[4] = function ()
+			RIBruntime.saveData("fresh")
+		end
+	}
+	
+	local fn = actions[combo.selected]
+	if fn then fn() end
+	
 	redirectToMenu(self)
 end
